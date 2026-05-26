@@ -59,6 +59,25 @@ export function DailyFoodLog() {
                   <p className="text-sm text-gray-500">
                     {entry.servings} serving{entry.servings !== 1 ? 's' : ''} · {timeString}
                   </p>
+                  {food && (food.protein_g !== null || food.carbs_g !== null || food.fat_g !== null) && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {food.protein_g !== null && (
+                        <span>{Math.round(food.protein_g * entry.servings)}g P</span>
+                      )}
+                      {food.protein_g !== null && (food.carbs_g !== null || food.fat_g !== null) && (
+                        <span className="mx-1">·</span>
+                      )}
+                      {food.carbs_g !== null && (
+                        <span>{Math.round(food.carbs_g * entry.servings)}g C</span>
+                      )}
+                      {food.carbs_g !== null && food.fat_g !== null && (
+                        <span className="mx-1">·</span>
+                      )}
+                      {food.fat_g !== null && (
+                        <span>{Math.round(food.fat_g * entry.servings)}g F</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="font-semibold text-gray-900 whitespace-nowrap">{Math.round(totalCals)} cal</p>

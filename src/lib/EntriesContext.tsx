@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './useAuth'
-import { EntriesContext, type AddEntryParams } from './entriesContextObject'
-import type { MealEntry } from './types'
+import { EntriesContext, type ManualEntryParams, type UsdaEntryParams } from './entriesContextObject'
+import type { MealEntry, Food } from './types'
 
 export function EntriesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -39,17 +39,46 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
     fetchEntries()
   }, [user])
 
-  const addEntry = async ({ name, calories, servings }: AddEntryParams) => {
+  // Helper: create a meal_entry row + reconcile optimistic state
+  const logMealEntry = async (
+    food: Food,
+    servings: number,
+    optimisticId: string
+  ): Promise<{ error: string | null }> => {
     if (!user) return { error: 'Not signed in' }
 
-    // Build an optimistic entry with a temporary ID
+    const { data: entryData, error: entryError } = await supabase
+      .from('meal_entries')
+      .insert({
+        user_id: user.id,
+        food_id: food.id,
+        servings,
+      })
+      .select('*, foods(*)')
+      .single()
+
+    if (entryError || !entryData) {
+      setEntries((current) => current.filter((e) => e.id !== optimisticId))
+      return { error: entryError?.message ?? 'Failed to log entry' }
+    }
+
+    setEntries((current) =>
+      current.map((e) => (e.id === optimisticId ? entryData : e))
+    )
+
+    return { error: null }
+  }
+
+  const addManualEntry = async ({ name, calories, servings }: ManualEntryParams) => {
+    if (!user) return { error: 'Not signed in' }
+
     const tempId = `temp-${crypto.randomUUID()}`
     const now = new Date().toISOString()
 
     const optimisticEntry: MealEntry = {
       id: tempId,
       user_id: user.id,
-      food_id: tempId, // placeholder; real food_id comes after the DB insert
+      food_id: tempId,
       servings,
       meal_type: null,
       consumed_at: now,
@@ -70,10 +99,8 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
       },
     }
 
-    // Add it to the UI immediately — newest first
     setEntries((current) => [optimisticEntry, ...current])
 
-    // Now do the actual DB work in the background
     const { data: foodData, error: foodError } = await supabase
       .from('foods')
       .insert({
@@ -87,51 +114,106 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
       .single()
 
     if (foodError || !foodData) {
-      // Roll back the optimistic entry
       setEntries((current) => current.filter((e) => e.id !== tempId))
       return { error: foodError?.message ?? 'Failed to create food' }
     }
 
-    const { data: entryData, error: entryError } = await supabase
-      .from('meal_entries')
-      .insert({
-        user_id: user.id,
-        food_id: foodData.id,
-        servings,
-      })
-      .select('*, foods(*)')
-      .single()
+    return logMealEntry(foodData, servings, tempId)
+  }
 
-    if (entryError || !entryData) {
-      // Roll back the optimistic entry
-      setEntries((current) => current.filter((e) => e.id !== tempId))
-      return { error: entryError?.message ?? 'Failed to log entry' }
+  const addUsdaEntry = async ({ food: usdaFood, servings }: UsdaEntryParams) => {
+    if (!user) return { error: 'Not signed in' }
+
+    const tempId = `temp-${crypto.randomUUID()}`
+    const now = new Date().toISOString()
+    const displayName = usdaFood.brand
+      ? `${usdaFood.name} (${usdaFood.brand})`
+      : usdaFood.name
+
+    const optimisticEntry: MealEntry = {
+      id: tempId,
+      user_id: user.id,
+      food_id: tempId,
+      servings,
+      meal_type: null,
+      consumed_at: now,
+      created_at: now,
+      foods: {
+        id: tempId,
+        user_id: user.id,
+        name: displayName,
+        brand: usdaFood.brand,
+        serving_size: usdaFood.servingSize,
+        serving_unit: usdaFood.servingUnit,
+        calories_per_serving: usdaFood.calories,
+        protein_g: usdaFood.protein,
+        carbs_g: usdaFood.carbs,
+        fat_g: usdaFood.fat,
+        usda_fdc_id: String(usdaFood.fdcId),
+        created_at: now,
+      },
     }
 
-    // Replace the optimistic entry with the real one from the database
-    setEntries((current) =>
-      current.map((e) => (e.id === tempId ? entryData : e))
-    )
+    setEntries((current) => [optimisticEntry, ...current])
 
-    return { error: null }
+    // Check cache: has this USDA food been logged before by anyone?
+    const { data: existingFood, error: lookupError } = await supabase
+      .from('foods')
+      .select('*')
+      .eq('usda_fdc_id', String(usdaFood.fdcId))
+      .is('user_id', null) // global/USDA-cached foods have null user_id
+      .maybeSingle()
+
+    if (lookupError) {
+      setEntries((current) => current.filter((e) => e.id !== tempId))
+      return { error: lookupError.message }
+    }
+
+    let foodToUse: Food
+
+    if (existingFood) {
+      // Cache hit — reuse the existing food row
+      foodToUse = existingFood
+    } else {
+      // Cache miss — create the food as a "global" cached entry (user_id = null)
+      const { data: newFood, error: insertError } = await supabase
+        .from('foods')
+        .insert({
+          user_id: null, // global cache, all users benefit
+          name: displayName,
+          brand: usdaFood.brand,
+          serving_size: usdaFood.servingSize,
+          serving_unit: usdaFood.servingUnit,
+          calories_per_serving: usdaFood.calories,
+          protein_g: usdaFood.protein,
+          carbs_g: usdaFood.carbs,
+          fat_g: usdaFood.fat,
+          usda_fdc_id: String(usdaFood.fdcId),
+        })
+        .select()
+        .single()
+
+      if (insertError || !newFood) {
+        setEntries((current) => current.filter((e) => e.id !== tempId))
+        return { error: insertError?.message ?? 'Failed to cache USDA food' }
+      }
+
+      foodToUse = newFood
+    }
+
+    return logMealEntry(foodToUse, servings, tempId)
   }
 
   const removeEntry = async (entryId: string) => {
-    // Snapshot current state in case we need to roll back
     const previousEntries = entries
-
-    // Optimistically remove from the UI
     setEntries((current) => current.filter((e) => e.id !== entryId))
 
-    // Delete from the database in the background.
-    // RLS prevents deleting other users' entries, so no need to filter by user_id.
     const { error } = await supabase
       .from('meal_entries')
       .delete()
       .eq('id', entryId)
 
     if (error) {
-      // Roll back — restore the entry
       setEntries(previousEntries)
       return { error: error.message }
     }
@@ -140,7 +222,9 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <EntriesContext.Provider value={{ entries, initialLoading, error, addEntry, removeEntry }}>
+    <EntriesContext.Provider
+      value={{ entries, initialLoading, error, addManualEntry, addUsdaEntry, removeEntry }}
+    >
       {children}
     </EntriesContext.Provider>
   )
