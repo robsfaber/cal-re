@@ -1,5 +1,7 @@
 import { useAuth } from './lib/useAuth'
 import { Auth } from './components/Auth'
+import { AddFoodForm } from './components/AddFoodForm'
+import { DailyFoodLog } from './components/DailyFoodLog'
 
 function App() {
   const { user, loading, signOut } = useAuth()
@@ -32,8 +34,9 @@ function App() {
           </div>
         </header>
 
-        <main className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">You're logged in. Food log goes here next.</p>
+        <main className="space-y-6">
+          <AddFoodForm />
+          <DailyFoodLog />
         </main>
       </div>
     </div>
