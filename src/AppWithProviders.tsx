@@ -2,6 +2,8 @@ import App from './App'
 import { DailyGoalProvider } from './lib/DailyGoalContext'
 import { EntriesProvider } from './lib/EntriesContext'
 import { ExerciseProvider } from './lib/ExerciseContext'
+import { WaterGoalProvider } from './lib/WaterGoalContext'
+import { WaterProvider } from './lib/WaterContext'
 import { useAuth } from './lib/useAuth'
 
 export function AppWithProviders() {
@@ -12,7 +14,11 @@ export function AppWithProviders() {
     <DailyGoalProvider key={resetKey}>
       <EntriesProvider key={resetKey}>
         <ExerciseProvider key={resetKey}>
-          <App />
+          <WaterGoalProvider key={resetKey}>
+            <WaterProvider key={resetKey}>
+              <App />
+            </WaterProvider>
+          </WaterGoalProvider>
         </ExerciseProvider>
       </EntriesProvider>
     </DailyGoalProvider>
