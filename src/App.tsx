@@ -1,10 +1,14 @@
+import { Routes, Route } from 'react-router-dom'
 import { useAuth } from './lib/useAuth'
 import { Auth } from './components/Auth'
-import { AddFoodForm } from './components/AddFoodForm'
-import { DailyFoodLog } from './components/DailyFoodLog'
+import { TabBar } from './components/TabBar'
+import { Daily } from './pages/Daily'
+import { Diary } from './pages/Diary'
+import { MyFoods } from './pages/MyFoods'
+import { Settings } from './pages/Settings'
 
 function App() {
-  const { user, loading, signOut } = useAuth()
+  const { user, loading } = useAuth()
 
   if (loading) {
     return (
@@ -19,26 +23,23 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-2xl mx-auto">
-        <header className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto p-4 pb-24">
+        <header className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Calorie Tracker</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user.email}</span>
-            <button
-              onClick={signOut}
-              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
-            >
-              Sign out
-            </button>
-          </div>
         </header>
 
-        <main className="space-y-6">
-          <AddFoodForm />
-          <DailyFoodLog />
+        <main>
+          <Routes>
+            <Route path="/" element={<Daily />} />
+            <Route path="/diary" element={<Diary />} />
+            <Route path="/foods" element={<MyFoods />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
         </main>
       </div>
+
+      <TabBar />
     </div>
   )
 }
