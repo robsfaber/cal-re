@@ -36,7 +36,7 @@ export function DailyFoodLog() {
       </div>
 
       <div className="flex justify-center mb-6">
-        <CalorieRing consumed={totalCalories} goal={goal} />
+        <CalorieRing value={totalCalories} goal={goal} unit="cal" />
       </div>
 
       {entries.length === 0 ? (

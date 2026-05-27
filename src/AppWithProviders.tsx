@@ -1,6 +1,7 @@
 import App from './App'
 import { DailyGoalProvider } from './lib/DailyGoalContext'
 import { EntriesProvider } from './lib/EntriesContext'
+import { ExerciseProvider } from './lib/ExerciseContext'
 import { useAuth } from './lib/useAuth'
 
 export function AppWithProviders() {
@@ -10,7 +11,9 @@ export function AppWithProviders() {
   return (
     <DailyGoalProvider key={resetKey}>
       <EntriesProvider key={resetKey}>
-        <App />
+        <ExerciseProvider key={resetKey}>
+          <App />
+        </ExerciseProvider>
       </EntriesProvider>
     </DailyGoalProvider>
   )
