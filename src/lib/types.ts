@@ -10,6 +10,7 @@ export type Food = {
   carbs_g: number | null
   fat_g: number | null
   usda_fdc_id: string | null
+  archived: boolean
   created_at: string
 }
 

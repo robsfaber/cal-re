@@ -1,7 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './useAuth'
-import { EntriesContext, type ManualEntryParams, type UsdaEntryParams } from './entriesContextObject'
+import {
+  EntriesContext,
+  type ManualEntryParams,
+  type UsdaEntryParams,
+  type ExistingFoodEntryParams,
+} from './entriesContextObject'
 import type { MealEntry, Food } from './types'
 
 export function EntriesProvider({ children }: { children: ReactNode }) {
@@ -95,6 +100,7 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
         carbs_g: null,
         fat_g: null,
         usda_fdc_id: null,
+        archived: false,
         created_at: now,
       },
     }
@@ -150,6 +156,7 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
         carbs_g: usdaFood.carbs,
         fat_g: usdaFood.fat,
         usda_fdc_id: String(usdaFood.fdcId),
+        archived: false,
         created_at: now,
       },
     }
@@ -161,7 +168,7 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
       .from('foods')
       .select('*')
       .eq('usda_fdc_id', String(usdaFood.fdcId))
-      .is('user_id', null) // global/USDA-cached foods have null user_id
+      .is('user_id', null)
       .maybeSingle()
 
     if (lookupError) {
@@ -172,14 +179,12 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
     let foodToUse: Food
 
     if (existingFood) {
-      // Cache hit — reuse the existing food row
       foodToUse = existingFood
     } else {
-      // Cache miss — create the food as a "global" cached entry (user_id = null)
       const { data: newFood, error: insertError } = await supabase
         .from('foods')
         .insert({
-          user_id: null, // global cache, all users benefit
+          user_id: null,
           name: displayName,
           brand: usdaFood.brand,
           serving_size: usdaFood.servingSize,
@@ -204,6 +209,39 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
     return logMealEntry(foodToUse, servings, tempId)
   }
 
+  const addEntryForExistingFood = async ({ foodId, servings }: ExistingFoodEntryParams) => {
+    if (!user) return { error: 'Not signed in' }
+
+    // Fetch the food row so we can build an optimistic entry with its data
+    const { data: foodData, error: foodError } = await supabase
+      .from('foods')
+      .select('*')
+      .eq('id', foodId)
+      .single()
+
+    if (foodError || !foodData) {
+      return { error: foodError?.message ?? 'Food not found' }
+    }
+
+    const tempId = `temp-${crypto.randomUUID()}`
+    const now = new Date().toISOString()
+
+    const optimisticEntry: MealEntry = {
+      id: tempId,
+      user_id: user.id,
+      food_id: foodData.id,
+      servings,
+      meal_type: null,
+      consumed_at: now,
+      created_at: now,
+      foods: foodData,
+    }
+
+    setEntries((current) => [optimisticEntry, ...current])
+
+    return logMealEntry(foodData, servings, tempId)
+  }
+
   const removeEntry = async (entryId: string) => {
     const previousEntries = entries
     setEntries((current) => current.filter((e) => e.id !== entryId))
@@ -223,7 +261,15 @@ export function EntriesProvider({ children }: { children: ReactNode }) {
 
   return (
     <EntriesContext.Provider
-      value={{ entries, initialLoading, error, addManualEntry, addUsdaEntry, removeEntry }}
+      value={{
+        entries,
+        initialLoading,
+        error,
+        addManualEntry,
+        addUsdaEntry,
+        addEntryForExistingFood,
+        removeEntry,
+      }}
     >
       {children}
     </EntriesContext.Provider>

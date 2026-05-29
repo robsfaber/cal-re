@@ -8,6 +8,7 @@ export type EntriesContextValue = {
   error: string | null
   addManualEntry: (params: ManualEntryParams) => Promise<{ error: string | null }>
   addUsdaEntry: (params: UsdaEntryParams) => Promise<{ error: string | null }>
+  addEntryForExistingFood: (params: ExistingFoodEntryParams) => Promise<{ error: string | null }>
   removeEntry: (entryId: string) => Promise<{ error: string | null }>
 }
 
@@ -19,6 +20,11 @@ export type ManualEntryParams = {
 
 export type UsdaEntryParams = {
   food: UsdaFood
+  servings: number
+}
+
+export type ExistingFoodEntryParams = {
+  foodId: string
   servings: number
 }
 
