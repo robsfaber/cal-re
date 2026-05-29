@@ -1,12 +1,12 @@
 import { ProgressRing } from './CalorieRing'
 import { useEntries } from '../lib/useEntries'
 import { useExercise } from '../lib/useExercise'
-
-const BURN_BONUS = 300
+import { useUserProfile } from '../lib/useUserProfile'
 
 export function BurnRing() {
   const { entries: foodEntries } = useEntries()
   const { entries: exerciseEntries } = useExercise()
+  const { burnBonus } = useUserProfile()
 
   const totalConsumed = foodEntries.reduce((sum, entry) => {
     const cals = entry.foods?.calories_per_serving ?? 0
@@ -14,7 +14,7 @@ export function BurnRing() {
   }, 0)
 
   const totalBurned = exerciseEntries.reduce((sum, e) => sum + e.calories_burned, 0)
-  const burnGoal = totalConsumed + BURN_BONUS
+  const burnGoal = totalConsumed + burnBonus
 
   return (
     <ProgressRing

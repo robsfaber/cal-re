@@ -1,9 +1,10 @@
 import App from './App'
-import { DailyGoalProvider } from './lib/DailyGoalContext'
+import { UserProfileProvider } from './lib/UserProfileContext'
 import { EntriesProvider } from './lib/EntriesContext'
 import { ExerciseProvider } from './lib/ExerciseContext'
 import { WaterGoalProvider } from './lib/WaterGoalContext'
 import { WaterProvider } from './lib/WaterContext'
+import { WeightProvider } from './lib/WeightContext'
 import { useAuth } from './lib/useAuth'
 
 export function AppWithProviders() {
@@ -11,16 +12,18 @@ export function AppWithProviders() {
   const resetKey = user?.id ?? 'logged-out'
 
   return (
-    <DailyGoalProvider key={resetKey}>
+    <UserProfileProvider key={resetKey}>
       <EntriesProvider key={resetKey}>
         <ExerciseProvider key={resetKey}>
           <WaterGoalProvider key={resetKey}>
             <WaterProvider key={resetKey}>
-              <App />
+              <WeightProvider key={resetKey}>
+                <App />
+              </WeightProvider>
             </WaterProvider>
           </WaterGoalProvider>
         </ExerciseProvider>
       </EntriesProvider>
-    </DailyGoalProvider>
+    </UserProfileProvider>
   )
 }
